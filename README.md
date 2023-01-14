@@ -1,3 +1,3 @@
-# KG-Solver
+# cftsolver - A Classical Field Theory Solver
 
-### Can solve nonlinear wave equations, sepcifically a massless scalar Klein-Gordon field with a quadratic or quartic term.
+### Can solve nonlinear coupled PDEs of interacting fields on a 1D, 2D, and 3D space lattice
