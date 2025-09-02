@@ -3,12 +3,13 @@
 
 class Simulation {
 public:
-    Simulation(int Nx, int Ny, double dt, double dx);
+    Simulation(int Nx, int Ny, double dt, double dx, double e);
 
-    void step(); // evolve one timestep
+    void step();
     Field field;
+    GaugeField gauge;
 
 private:
     double dt, dx;
-    void laplacian(Field &f, std::vector<std::complex<double>> &out);
+    void covariantLaplacian(Field &f, std::vector<std::complex<double>> &out);
 };
