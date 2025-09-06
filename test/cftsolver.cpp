@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <cmath>
 
 using namespace std;
 
@@ -28,93 +29,136 @@ using namespace std;
 // This way we minimzie the # of copies of the field data we have to make.
 // Consider an index that updates which is which after every Push
 
+//  --future--- <--|  i+1
+//  --present--    ^  i
+//  ---past---- -->|  i-1
+
 // This way we never have to save the full history. We can send data
 // to OpenGL or write images later for viz.
 
+// The space complexity is N^2 * 3 * N_fields
+
 class RealScalarField {
+    public:
+        int n;
+        float dl;
+        float dt;
+
+        RealScalarField();
+        RealScalarField(int grid_size, float time_step);
+
+        void InitGauss(float x0, float y0, float sigma);
+        void InitWavePacket(float omega, float kx, float ky, \
+                            float sigma_x, float sigma_y, \
+                            float x0, float y0);
+
+        float GetX(int i) {
+            return dl*(static_cast<float>(i) - static_cast<float>(n)/2);
+        }
+
+        float GetY(int i) {
+            return dl*(static_cast<float>(i) - static_cast<float>(n)/2);
+        }
+
+        float Get(int i, int j) {
+
+            if (i >= n) return 0.0;
+            if (i <= 0) return 0.0;
+            if (j >= n) return 0.0;
+            if (j <= 0) return 0.0;
+
+            // can enforce torus topology here
+            auto *p = GetPlane(present);
+            return (*p)[i][j];
+        }
+
+        float GetPast(int i, int j) {
+            // can enforce torus topology here
+
+            if (i >= n) return 0.0;
+            if (i <= 0) return 0.0;
+            if (j >= n) return 0.0;
+            if (j <= 0) return 0.0;
+
+            auto *p = GetPlane(past);
+            return (*p)[i][j];
+        }
+
+        void Push(int i, int j, float new_value) {
+            auto *p = GetPlane(future);
+            (*p)[i][j] = new_value;
+        }
+
+        float Del2X(int i, int j); // second derivatives
+        float Del2Y(int i, int j);
+
+        // rotate layers once per time step
+        void RotatePlanes() {
+            int tmp = past;
+            past = present;
+            present = future;
+            future = tmp;
+        }
+
     private:
         vector<vector<float>> phi_top;
         vector<vector<float>> phi_mid;
         vector<vector<float>> phi_bottom;
 
-        std::map<string, int> layer_map;
-    public:
-        int n;
-        int dl;
-
-        RealScalarField(int grid_size);
-
-        void InitGauss(float x0, float y0, float sigma);
-        void InitWavePacket(float omega, float kx, float ky, float sigma);
-
-        void Push(int i, int j, float new_value);
-        float Get(int i, int j);
-        float GetPast(int i, int j);
-
-        float Del2X(int i, int j); // second derivatives
-        float Del2Y(int i, int j);
+        int past, present, future;
+        
+        vector<vector<float>>* GetPlane(int idx) {
+            switch (idx) {
+                case 0: return &phi_bottom;
+                case 1: return &phi_mid;
+                case 2: return &phi_top;
+                default: return nullptr;
+            }
+        }
 
 };
 
-RealScalarField::RealScalarField(int grid_size)
+RealScalarField::RealScalarField(int grid_size, float time_step)
     : n(grid_size),
     phi_top(grid_size, vector<float>(grid_size,0.0)),
     phi_mid(grid_size, vector<float>(grid_size,0.0)),
-    phi_bottom(grid_size, vector<float>(grid_size,0.0)) {
+    phi_bottom(grid_size, vector<float>(grid_size,0.0)),
+    past(0), present(1), future(2) {
 
-    layer_map["past"] = 2;
-    layer_map["present"] = 1;
-    layer_map["future"] = 0;
     dl = 1.0 / static_cast<float>(grid_size);
+    dt = time_step;
 
 }
 
-float RealScalarField::Get(int i, int j) {
-    // can enforce torus topology here
-    if (layer_map["present"] == 2) {
-        return phi_top[i][j];
-    } else if (layer_map["present"] == 1) {
-        return phi_mid[i][j];
-    } else {
-        return phi_bottom[i][j];
-    }
+void RealScalarField::InitWavePacket(float omega, float kx, float ky,
+                                    float sigma_x, float sigma_y,
+                                    float x0, float y0) {
     
-}
+    auto *past_plane = GetPlane(past);
+    auto *present_plane = GetPlane(present);
 
-float RealScalarField::GetPast(int i, int j) {
-    // can enforce torus topology here
-    if (layer_map["past"] == 2) {
-        return phi_top[i][j];
-    } else if (layer_map["past"] == 1) {
-        return phi_mid[i][j];
-    } else {
-        return phi_bottom[i][j];
+    for (int i=0; i<n; i++) {
+        for (int j=0; j<n; j++) {
+            float x = GetX(i);
+            float y = GetY(j);
+            (*past_plane)[i][j] = cos(kx*x)*cos(ky*y)
+                                * exp(-pow(x-x0, 2) / pow(sigma_x, 2))
+                                * exp(-pow(y-y0,2) / pow(sigma_y, 2));
+            (*present_plane)[i][j] = cos(kx*x)*cos(ky*y)
+                                   * exp(-pow(x-x0, 2) / pow(sigma_x, 2))
+                                   * exp(-pow(y-y0, 2) / pow(sigma_y, 2));
+        }
     }
-}
-
-void RealScalarField::Push(int i, int j, float new_value) {
-    if (layer_map["future"] == 2) {
-        phi_top[i][j] = new_value;
-    } else if (layer_map["future"] == 1) {
-        phi_mid[i][j] = new_value;
-    } else {
-        phi_bottom[i][j] = new_value;
-    }
-
-    // Cycle the layer map
-    layer_map["future"] = (layer_map["future"] + 1) % 3;
-    layer_map["present"] = (layer_map["present"] + 1) % 3;
-    layer_map["past"] = (layer_map["past"] + 1) % 3;
 }
 
 float RealScalarField::Del2X(int i, int j) {
     // central difference formula
     // TODO(AT): find better boundary condition, maybe include torus geometry
 
-    if (i == n) return 0.0;
-    if (i == 0) return 0.0;
-    if (j == n) return 0.0;
-    if (j == 0) return 0.0;
+    if (i >= n) return 0.0;
+    if (i <= 0) return 0.0;
+    if (j >= n) return 0.0;
+    if (j <= 0) return 0.0;
 
     return Get(i+1,j) - 2*Get(i,j) + Get(i-1,j);
 
@@ -124,10 +168,10 @@ float RealScalarField::Del2Y(int i, int j) {
     // central difference formula
     // TODO(AT): find better boundary condition, maybe include torus geometry
 
-    if (i == n) return 0.0;
-    if (i == 0) return 0.0;
-    if (j == n) return 0.0;
-    if (j == 0) return 0.0;
+    if (i >= n) return 0.0;
+    if (i <= 0) return 0.0;
+    if (j >= n) return 0.0;
+    if (j <= 0) return 0.0;
 
     return Get(i,j+1) - 2*Get(i,j) + Get(i,j-1);
 
@@ -141,38 +185,60 @@ class EulerLagrange {
     public:
         EulerLagrange() {}
 
-        void PushFreeMassiveScalar(RealScalarField Phi, float m);
-
+        void PushFreeMassiveScalar(RealScalarField &Phi, float m);
 
 };
 
-void EulerLagrange::PushFreeMassiveScalar(RealScalarField Phi, float m) {
+void EulerLagrange::PushFreeMassiveScalar(RealScalarField &Phi, float m) {
 
     for (int i=0; i<Phi.n; i++) {
         for (int j=0; j<Phi.n; j++) {
-            float phi_next = 2 * Phi.Get(i,j) - Phi.GetPast(i,j) \
+
+            // Push with the Klein-Gordon equation for Phi
+            // Using 2nd order central for d'Alembertian on phi
+            float kg_push = 2 * Phi.Get(i,j) - Phi.GetPast(i,j) \
                     + Phi.Del2X(i,j) + Phi.Del2Y(i,j) - m*m*Phi.Get(i,j);
-            Phi.Push(i,j,phi_next);
+
+            Phi.Push(i,j,kg_push);
         }
-    } 
+    }
+
+    Phi.RotatePlanes();
 
 }
+
+
+
+
+void run_free_scalar() {
+    RealScalarField phi(100, 0.1);
+    phi.InitWavePacket(2.0, 0.5, -0.2, 0.1, 0.1, 0.0, 0.0);
+
+    for (int i = 0; i < phi.n - 1; i++){
+        cout << phi.Get(i,8) << endl;
+    }
+
+    EulerLagrange el;
+
+    int max_timesteps = 100;
+
+    int l = 0;
+    while(l < max_timesteps) {
+        cout << "On timestamp = " << l << endl;
+        el.PushFreeMassiveScalar(phi, 0.0);
+        l++;
+        cout << phi.Get(10,10) << endl;
+    }
+
+}
+
+
 
 
 int main() {
 	cout << "Beginning program..." << endl;
 
-    RealScalarField x(5);
-
-    cout << x.Get(1,1) << endl;
-    x.Push(2,2,1.0);
-    x.Push(2,3,1.0);
-
-    cout << 0 % 50 << endl;
-    cout << 50 % 50 << endl;
-    cout << 49 % 50 << endl;
-    cout << 51 % 50 << endl;
-    cout << -1 % 50 << endl;
+    run_free_scalar();
 
 	cout << "...ending program." << endl;
 	return 0;
