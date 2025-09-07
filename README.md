@@ -24,18 +24,22 @@ without any interaction. It's Lagrangian can be written as
 $$\mathcal{L} = \frac{1}{2}(\partial_\mu \phi) (\partial^\mu \phi) - \frac{1}{2}m^2 \phi^2$$
 With the Euler-Lagrange equations, this leads to the Klein-Gordon equation
 of motion for the field $\phi$,
+
 $$(\Box + m^2) \phi = 0$$
 
 If we want to simulate this with finite difference methods, there are a few
 routes to take. The simplest is to open up the KG equation and discretize
 the derivatives with central difference, working for now in 1 space and 1 time
 dimension:
+
 $$\partial_{t}^2 \phi \to \frac{\phi(t_{i+1}) - 2 \phi(t_{i}) + \phi(t_{i-1})}{\Delta t^2}$$
 $$\partial_{x}^2 \phi \to \frac{\phi(x_{i+1}) - 2 \phi(x_{i}) + \phi(x_{i-1})}{\Delta x^2}$$
+
 Where we are now describing the field over a N-dimensional space lattice with
 coordinates $x_{i}$ of spacing $\Delta x$ and time steps $\Delta t$ over time
 coordinates $t_{i}$. This permits us to solve for the "push" of $\phi$
 to the next time step;
+
 $$\phi(x_{i},t_{i+1}) \simeq 2 \phi(x_{i},t_{i}) - \phi(x_{i},t_{i-1}) + (\partial^2_{x_{i}}\phi(x_{i},t_{i}) - m^2\phi(x_{i},t_{i})) (\Delta t)^2$$
 
 From this equation we can immediately recognize that, just like solving any
