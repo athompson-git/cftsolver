@@ -160,7 +160,7 @@ float RealScalarField::Del2X(int i, int j) {
     if (j >= n) return 0.0;
     if (j <= 0) return 0.0;
 
-    return Get(i+1,j) - 2*Get(i,j) + Get(i-1,j);
+    return (Get(i+1,j) - 2*Get(i,j) + Get(i-1,j))/dl;
 
 }
 
@@ -173,7 +173,7 @@ float RealScalarField::Del2Y(int i, int j) {
     if (j >= n) return 0.0;
     if (j <= 0) return 0.0;
 
-    return Get(i,j+1) - 2*Get(i,j) + Get(i,j-1);
+    return (Get(i,j+1) - 2*Get(i,j) + Get(i,j-1))/dl;
 
 }
 
@@ -197,7 +197,7 @@ void EulerLagrange::PushFreeMassiveScalar(RealScalarField &Phi, float m) {
             // Push with the Klein-Gordon equation for Phi
             // Using 2nd order central for d'Alembertian on phi
             float kg_push = 2 * Phi.Get(i,j) - Phi.GetPast(i,j) \
-                    + Phi.Del2X(i,j) + Phi.Del2Y(i,j) - m*m*Phi.Get(i,j);
+            + (Phi.Del2X(i,j) + Phi.Del2Y(i,j) - m*m*Phi.Get(i,j))*Phi.dt;
 
             Phi.Push(i,j,kg_push);
         }
