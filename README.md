@@ -1,8 +1,15 @@
 # cftsolver - A Classical Field Theory Solver
 
 I've always been a visual learner. 
-We can solve Quantum Field Theory (QFT) by doing quantum mechanics - computing the S-matrix from the path integral, a sort of overlap integral between two definite states.
-What about solving the underlying classical field theory before quantizing? This tool aims to visualize interacting theories by solving the Euler-Lagrange equations of motion (EoM) explicitly for a set of input field configurations. This is effectively a system of coupled partial differential equations on a lattice. We will first start by investigating free field theories and then graduate to interacting ones, like scalar QED.
+We can solve Quantum Field Theory (QFT) by doing quantum mechanics - computing
+the S-matrix from the path integral, a sort of overlap integral between two definite states.
+What about solving the underlying classical field theory before quantizing?
+This tool aims to visualize interacting theories by solving the Euler-Lagrange
+equations of motion (EoM) explicitly for a set of input field configurations. 
+This is effectively a system of coupled partial differential field equations on a lattice. 
+
+### Requirements
+* OpenGL 4.6
 
 ### TODO
 * implement field classes
@@ -47,6 +54,11 @@ PDE, we require some boundary condition information; to kick things off we
 require data on the fields at two time slices -- the present slice and the
 one before -- and we also need spatial boundary conditions at the edges of our
 discretized space in order to compute the values of the field and its derivatives.
+
+
+
+
+
 
 ## Scalar QED
 ```wip```
