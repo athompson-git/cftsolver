@@ -6,7 +6,7 @@
 #include <string>
 #include <map>
 #include <cmath>
-
+#include <complex>
 #include <GLFW/glfw3.h>
 
 using namespace std;
@@ -164,7 +164,7 @@ float RealScalarField::Del2X(int i, int j) {
     if (j >= n) return 0.0;
     if (j <= 0) return 0.0;
 
-    return (Get(i+1,j) - 2*Get(i,j) + Get(i-1,j))/(dl*dl);
+    return (Get(i+1,j) - 2.0 * Get(i,j) + Get(i-1,j))/(dl*dl);
 
 }
 
@@ -177,7 +177,7 @@ float RealScalarField::Del2Y(int i, int j) {
     if (j >= n) return 0.0;
     if (j <= 0) return 0.0;
 
-    return (Get(i,j+1) - 2*Get(i,j) + Get(i,j-1))/(dl*dl);
+    return (Get(i,j+1) - 2.0 * Get(i,j) + Get(i,j-1))/(dl*dl);
 
 }
 
@@ -253,7 +253,7 @@ class ComplexScalarField {
 
         int past, present, future;
         
-        vector<vector<float>>* GetPlane(int idx) {
+        vector<vector<complex<float>>>* GetPlane(int idx) {
             switch (idx) {
                 case 0: return &phi_bottom;
                 case 1: return &phi_mid;
@@ -297,7 +297,7 @@ void ComplexScalarField::InitWavePacket(float omega, float kx, float ky,
     }
 }
 
-float ComplexScalarField::Del2X(int i, int j) {
+complex<float> ComplexScalarField::Del2X(int i, int j) {
     // central difference formula
     // TODO(AT): find better boundary condition, maybe include torus geometry
 
@@ -306,11 +306,11 @@ float ComplexScalarField::Del2X(int i, int j) {
     if (j >= n) return 0.0;
     if (j <= 0) return 0.0;
 
-    return (Get(i+1,j) - 2*Get(i,j) + Get(i-1,j))/(dl*dl);
+    return (Get(i+1,j) - static_cast<complex<float>>(2.0) * Get(i,j) + Get(i-1,j))/(dl*dl);
 
 }
 
-float ComplexScalarField::Del2Y(int i, int j) {
+complex<float> ComplexScalarField::Del2Y(int i, int j) {
     // central difference formula
     // TODO(AT): find better boundary condition, maybe include torus geometry
 
@@ -319,7 +319,7 @@ float ComplexScalarField::Del2Y(int i, int j) {
     if (j >= n) return 0.0;
     if (j <= 0) return 0.0;
 
-    return (Get(i,j+1) - 2*Get(i,j) + Get(i,j-1))/(dl*dl);
+    return (Get(i,j+1) - static_cast<complex<float>>(2.0) * Get(i,j) + Get(i,j-1))/(dl*dl);
 
 }
 
