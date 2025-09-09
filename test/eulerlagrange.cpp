@@ -27,7 +27,7 @@ void EulerLagrange::PushFreeMassiveScalar(RealScalarField &Phi, float m) {
             // Using 2nd order central for d'Alembertian on phi
             float kg_push = 2 * Phi.Get(i,j) - Phi.GetPast(i,j)
                             + (Phi.Del2X(i,j) + Phi.Del2Y(i,j)
-                                -m*m*Phi.Get(i,j)) * Phi.dt * Phi.dt;
+                            -m*m*Phi.Get(i,j)) * Phi.dt * Phi.dt;
 
             Phi.Push(i,j,kg_push);
         }
