@@ -45,9 +45,9 @@ using namespace std;
 
 class RealScalarField {
     public:
-        int n;
-        float dl;
-        float dt;
+        const int n;
+        const float dl;
+        const float dt;
 
         RealScalarField();
         RealScalarField(int grid_size, float time_step);
@@ -123,16 +123,12 @@ class RealScalarField {
 };
 
 RealScalarField::RealScalarField(int grid_size, float time_step)
-    : n(grid_size),
+    : n(grid_size), dt(time_step),
+    dl(1.0 / static_cast<float>(grid_size)),
     phi_top(grid_size, vector<float>(grid_size,0.0)),
     phi_mid(grid_size, vector<float>(grid_size,0.0)),
     phi_bottom(grid_size, vector<float>(grid_size,0.0)),
-    past(0), present(1), future(2) {
-
-    dl = 1.0 / static_cast<float>(grid_size);
-    dt = time_step;
-
-}
+    past(0), present(1), future(2) {}
 
 void RealScalarField::InitWavePacket(float omega, float kx, float ky,
                                     float sigma_x, float sigma_y,
@@ -187,9 +183,9 @@ float RealScalarField::Del2Y(int i, int j) {
 // Complex Scalar Field
 class ComplexScalarField {
     public:
-        int n;
-        float dl;
-        float dt;
+        const int n;
+        const float dl;
+        const float dt;
 
         ComplexScalarField();
         ComplexScalarField(int grid_size, float time_step);
@@ -265,15 +261,12 @@ class ComplexScalarField {
 };
 
 ComplexScalarField::ComplexScalarField(int grid_size, float time_step)
-    : n(grid_size),
+    : n(grid_size), dt(time_step),
+    dl(1.0 / static_cast<float>(grid_size)),
     phi_top(grid_size, vector<complex<float>>(grid_size,0.0)),
     phi_mid(grid_size, vector<complex<float>>(grid_size,0.0)),
     phi_bottom(grid_size, vector<complex<float>>(grid_size,0.0)),
     past(0), present(1), future(2) {
-
-    dl = 1.0 / static_cast<float>(grid_size);
-    dt = time_step;
-
 }
 
 void ComplexScalarField::InitWavePacket(float omega, float kx, float ky,
