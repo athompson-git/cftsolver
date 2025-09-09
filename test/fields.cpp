@@ -44,91 +44,100 @@ using namespace std;
 // The space complexity is N^2 * 3 * N_fields
 
 class RealScalarField {
-    public:
-        const int n;
-        const float dl;
-        const float dt;
+public:
+    const int n;
+    const float dl;
+    const float dt;
+    const float mass;
 
-        RealScalarField();
-        RealScalarField(int grid_size, float time_step);
+    RealScalarField();
+    RealScalarField(int grid_size, float time_step, float m);
 
-        void InitWavePacket(float omega, float kx, float ky, \
-                            float sigma_x, float sigma_y, \
-                            float x0, float y0);
+    void InitWavePacket(float omega, float kx, float ky, \
+                        float sigma_x, float sigma_y, \
+                        float x0, float y0);
 
-        float GetX(int i) {
-            return dl*(static_cast<float>(i) - static_cast<float>(n)/2);
+    float GetX(int i) {
+        return dl*(static_cast<float>(i) - static_cast<float>(n)/2);
+    }
+
+    float GetY(int i) {
+        return dl*(static_cast<float>(i) - static_cast<float>(n)/2);
+    }
+
+    float Get(int i, int j) {
+
+        if (i >= n) return 0.0;
+        if (i <= 0) return 0.0;
+        if (j >= n) return 0.0;
+        if (j <= 0) return 0.0;
+
+        // can enforce torus topology here
+        auto *p = GetPlane(present);
+        return (*p)[i][j];
+    }
+
+    float GetPast(int i, int j) {
+        // can enforce torus topology here
+
+        if (i >= n) return 0.0;
+        if (i <= 0) return 0.0;
+        if (j >= n) return 0.0;
+        if (j <= 0) return 0.0;
+
+        auto *p = GetPlane(past);
+        return (*p)[i][j];
+    }
+
+    void Push(int i, int j, float new_value) {
+        // Push new values to the future plane and update the vertex list
+        auto *p = GetPlane(future);
+        (*p)[i][j] = new_value;
+        UpdateVertex(i,j);
+    }
+
+    float Del2X(int i, int j); // second derivatives
+    float Del2Y(int i, int j);
+
+    const std::vector<float>& GetVertices() const { return vertices; }
+    void UpdateVertex(int i, int j);
+
+    // rotate layers once per time step
+    void RotatePlanes() {
+        int tmp = past;
+        past = present;
+        present = future;
+        future = tmp;
+    }
+
+private:
+    vector<vector<float>> phi_top;
+    vector<vector<float>> phi_mid;
+    vector<vector<float>> phi_bottom;
+
+    vector<float> vertices;
+
+    int past, present, future;
+
+    vector<vector<float>>* GetPlane(int idx) {
+        switch (idx) {
+            case 0: return &phi_bottom;
+            case 1: return &phi_mid;
+            case 2: return &phi_top;
+            default: return nullptr;
         }
-
-        float GetY(int i) {
-            return dl*(static_cast<float>(i) - static_cast<float>(n)/2);
-        }
-
-        float Get(int i, int j) {
-
-            if (i >= n) return 0.0;
-            if (i <= 0) return 0.0;
-            if (j >= n) return 0.0;
-            if (j <= 0) return 0.0;
-
-            // can enforce torus topology here
-            auto *p = GetPlane(present);
-            return (*p)[i][j];
-        }
-
-        float GetPast(int i, int j) {
-            // can enforce torus topology here
-
-            if (i >= n) return 0.0;
-            if (i <= 0) return 0.0;
-            if (j >= n) return 0.0;
-            if (j <= 0) return 0.0;
-
-            auto *p = GetPlane(past);
-            return (*p)[i][j];
-        }
-
-        void Push(int i, int j, float new_value) {
-            auto *p = GetPlane(future);
-            (*p)[i][j] = new_value;
-        }
-
-        float Del2X(int i, int j); // second derivatives
-        float Del2Y(int i, int j);
-
-        // rotate layers once per time step
-        void RotatePlanes() {
-            int tmp = past;
-            past = present;
-            present = future;
-            future = tmp;
-        }
-
-    private:
-        vector<vector<float>> phi_top;
-        vector<vector<float>> phi_mid;
-        vector<vector<float>> phi_bottom;
-
-        int past, present, future;
-        
-        vector<vector<float>>* GetPlane(int idx) {
-            switch (idx) {
-                case 0: return &phi_bottom;
-                case 1: return &phi_mid;
-                case 2: return &phi_top;
-                default: return nullptr;
-            }
-        }
+    }
 
 };
 
-RealScalarField::RealScalarField(int grid_size, float time_step)
+RealScalarField::RealScalarField(int grid_size, float time_step, float m)
     : n(grid_size), dt(time_step),
     dl(1.0 / static_cast<float>(grid_size)),
     phi_top(grid_size, vector<float>(grid_size,0.0)),
     phi_mid(grid_size, vector<float>(grid_size,0.0)),
     phi_bottom(grid_size, vector<float>(grid_size,0.0)),
-    past(0), present(1), future(2) {}
+    past(0), present(1), future(2), mass(m),
+    vertices(3 * grid_size * grid_size) {}
 
 void RealScalarField::InitWavePacket(float omega, float kx, float ky,
                                     float sigma_x, float sigma_y,
@@ -147,8 +156,18 @@ void RealScalarField::InitWavePacket(float omega, float kx, float ky,
             (*present_plane)[i][j] = cos(kx*x)*cos(ky*y)
                                    * exp(-pow(x-x0, 2) / pow(sigma_x, 2))
                                    * exp(-pow(y-y0, 2) / pow(sigma_y, 2));
+
+            // update the vertex on init
+            UpdateVertex(i,j);
         }
     }
+}
+
+void RealScalarField::UpdateVertex(int i, int j) {
+    const auto *p = GetPlane(present);
+    vertices[i * n + j] = GetX(i);
+    vertices[i * n + j + 1] = GetY(j);
+    vertices[i * n + j + 2] = (*p)[i][j];
 }
 
 float RealScalarField::Del2X(int i, int j) {
@@ -186,9 +205,10 @@ class ComplexScalarField {
         const int n;
         const float dl;
         const float dt;
+        const float mass;
 
         ComplexScalarField();
-        ComplexScalarField(int grid_size, float time_step);
+        ComplexScalarField(int grid_size, float time_step, float m);
 
         void InitWavePacket(float omega, float kx, float ky, \
                             float sigma_x, float sigma_y, \
@@ -226,7 +246,7 @@ class ComplexScalarField {
             return (*p)[i][j];
         }
 
-        void Push(int i, int j, float new_value) {
+        void Push(int i, int j, complex<float> new_value) {
             auto *p = GetPlane(future);
             (*p)[i][j] = new_value;
         }
@@ -260,14 +280,14 @@ class ComplexScalarField {
 
 };
 
-ComplexScalarField::ComplexScalarField(int grid_size, float time_step)
+ComplexScalarField::ComplexScalarField(int grid_size, float time_step, float m)
     : n(grid_size), dt(time_step),
     dl(1.0 / static_cast<float>(grid_size)),
     phi_top(grid_size, vector<complex<float>>(grid_size,0.0)),
     phi_mid(grid_size, vector<complex<float>>(grid_size,0.0)),
     phi_bottom(grid_size, vector<complex<float>>(grid_size,0.0)),
-    past(0), present(1), future(2) {
-}
+    mass(m),
+    past(0), present(1), future(2) {}
 
 void ComplexScalarField::InitWavePacket(float omega, float kx, float ky,
                                     float sigma_x, float sigma_y,
