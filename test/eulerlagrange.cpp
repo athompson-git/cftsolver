@@ -66,6 +66,8 @@ public:
 
     float GetEnergy();
 
+    float GetCharge();
+
 private:
     int grid_size;
     float dt;
