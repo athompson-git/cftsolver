@@ -65,7 +65,7 @@ int main() {
     int n_grid = 20;
     int n_verts = 3 * n_grid * n_grid;
     RealScalarField phi(n_grid, 0.001, 2.0);
-    phi.InitWavePacket(0.00001, 0.5, -0.2, 0.2, 0.2, 0.0, 0.0);
+    phi.InitWavePacket(2, 2, 0.5f, 0.5f, 0.0, 0.0);
 
     EulerLagrange euler_lagrange;
 
@@ -134,7 +134,7 @@ int main() {
 
 
     // Get initial vertices
-    const vector<float> vertices = phi.GetVertices();
+    vector<float> vertices = phi.GetVertices();
 
     // Set up vertex buffer
     unsigned int VBO, VAO;
@@ -148,7 +148,7 @@ int main() {
     glBufferData(GL_ARRAY_BUFFER,
                  vertices.size(),
                  vertices.data(),
-                 GL_STATIC_DRAW);
+                 GL_DYNAMIC_DRAW);  // changed to DYNAMIC_DRAW
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
@@ -174,6 +174,10 @@ int main() {
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
         glDrawArrays(GL_POINTS, 0, n_verts);  // draw n_verts
+
+
+        // update field content
+        euler_lagrange.PushFreeMassiveScalar(phi);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

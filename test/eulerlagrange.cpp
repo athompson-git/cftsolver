@@ -68,6 +68,8 @@ public:
 
     float GetCharge();
 
+    // TODO: add method for init
+
 private:
     int grid_size;
     float dt;

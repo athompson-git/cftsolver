@@ -1,6 +1,8 @@
 // fields.cpp
 #pragma once
 
+#include "fields.h"
+
 #include <iostream>
 #include <vector>
 #include <string>
@@ -10,16 +12,6 @@
 #include <GLFW/glfw3.h>
 
 using namespace std;
-
-
-
-// Overview plan
-// RealScalarField class
-// ComplexScalarField class
-// EulerLagrange class
-// --> contains specific field update rules
-// --> accesses fields with Push methods
-
 
 // Fields:
 // to avoid minimal rewriting and mem alloc, establish 3 layers:
@@ -49,11 +41,12 @@ public:
     const float dl;
     const float dt;
     const float mass;
+    const bool use_fixed_bc = false;
 
     RealScalarField();
     RealScalarField(int grid_size, float time_step, float m);
 
-    void InitWavePacket(float omega, float kx, float ky, \
+    void InitWavePacket(int kx, int ky, \
                         float sigma_x, float sigma_y, \
                         float x0, float y0);
 
@@ -127,24 +120,24 @@ bool RealScalarField::AtBoundary(int i, int j) {
 
 // TODO: add boundary conditions
 float RealScalarField::GetFuture(int i, int j) {
-    if (AtBoundary(i,j)) { return 0.0f; }
-
+    if (AtBoundary(i,j) && use_fixed_bc) { return 0.0f; }
     auto *p = GetPlane(future);
-    return (*p)[i][j];
+
+    return (*p)[fields::mod(i,n)][fields::mod(j,n)];
 }
 
 float RealScalarField::Get(int i, int j) {
-    if (AtBoundary(i,j)) { return 0.0f; }
-
+    if (AtBoundary(i,j) && use_fixed_bc) { return 0.0f; }
     auto *p = GetPlane(present);
-    return (*p)[i][j];
+
+    return (*p)[fields::mod(i,n)][fields::mod(j,n)];
 }
 
 float RealScalarField::GetPast(int i, int j) {
-    if (AtBoundary(i,j)) { return 0.0f; }
-
+    if (AtBoundary(i,j) && use_fixed_bc) { return 0.0f; }
     auto *p = GetPlane(past);
-    return (*p)[i][j];
+
+    return (*p)[fields::mod(i,n)][fields::mod(j,n)];
 }
 
 void RealScalarField::Push(int i, int j, float new_value) {
@@ -154,23 +147,30 @@ void RealScalarField::Push(int i, int j, float new_value) {
     UpdateVertex(i,j);
 }
 
-void RealScalarField::InitWavePacket(float omega, float kx, float ky,
-                                    float sigma_x, float sigma_y,
-                                    float x0, float y0) {
-    
+void RealScalarField::InitWavePacket(int kx, int ky, float sigma_x,
+                                     float sigma_y, float x0, float y0) {
+    // TODO: add catch to prevent initializing waves with
+    // 1/omega < dt or kx, ky, sigma_x, sigma_y < dl
+    // TODO: add phase
     auto *past_plane = GetPlane(past);
     auto *present_plane = GetPlane(present);
 
+    // dispersion relation for integer wavenumber
+    float omega = sqrt(pow(mass, 2) + pow(kx*fields::pi, 2) \
+                                    + pow(ky*fields::pi, 2));
     for (int i=0; i<n; i++) {
         for (int j=0; j<n; j++) {
             float x = GetX(i);
             float y = GetY(j);
-            (*past_plane)[i][j] = cos(kx*x)*cos(ky*y)
-                                * exp(-pow(x-x0, 2) / pow(sigma_x, 2))
-                                * exp(-pow(y-y0,2) / pow(sigma_y, 2));
-            (*present_plane)[i][j] = cos(kx*x)*cos(ky*y)
-                                   * exp(-pow(x-x0, 2) / pow(sigma_x, 2))
-                                   * exp(-pow(y-y0, 2) / pow(sigma_y, 2));
+            (*past_plane)[i][j] = fields::cos_wave(x, x0, kx, 1.0f) \
+                                * fields::cos_wave(y, y0, ky, 1.0f) \
+                                * fields::wrapped_gaussian(x, x0, sigma_x) \
+                                * fields::wrapped_gaussian(y, y0, sigma_y);
+            (*present_plane)[i][j] = fields::cos_wave(x, x0, kx, 1.0f) \
+                                * fields::cos_wave(y, y0, ky, 1.0f) \
+                                * fields::wrapped_gaussian(x, x0, sigma_x) \
+                                * fields::wrapped_gaussian(y, y0, sigma_y) \
+                                * (1 - omega * omega * dt * dt); 
 
             // update the vertex on init
             UpdateVertex(i,j);
@@ -179,14 +179,13 @@ void RealScalarField::InitWavePacket(float omega, float kx, float ky,
 }
 
 void RealScalarField::UpdateVertex(int i, int j) {
-    const auto *p = GetPlane(present);
     vertices[i * n + j] = GetX(i);
     vertices[i * n + j + 1] = GetY(j);
-    vertices[i * n + j + 2] = (*p)[i][j];
+    vertices[i * n + j + 2] = Get(i,j);
 }
 
 float RealScalarField::Del2X(int i, int j) {
-    if (AtBoundary(i,j)) { return 0.0f; }
+    if (AtBoundary(i,j) && use_fixed_bc) { return 0.0f; }
 
     // second-order central
     return (Get(i+1,j) - 2.0f * Get(i,j) + Get(i-1,j))/(dl*dl);
@@ -194,7 +193,7 @@ float RealScalarField::Del2X(int i, int j) {
 }
 
 float RealScalarField::Del2Y(int i, int j) {
-    if (AtBoundary(i,j)) { return 0.0f; }
+    if (AtBoundary(i,j) && use_fixed_bc) { return 0.0f; }
 
     // second-order central
     return (Get(i,j+1) - 2.0f * Get(i,j) + Get(i,j-1))/(dl*dl);
@@ -202,7 +201,7 @@ float RealScalarField::Del2Y(int i, int j) {
 }
 
 float RealScalarField::DelT(int i, int j) {
-    if (AtBoundary(i,j)) { return 0.0f; }
+    if (AtBoundary(i,j) && use_fixed_bc) { return 0.0f; }
 
     // first-order backward
     return (Get(i,j) - GetPast(i,j))/(dt);
@@ -210,7 +209,7 @@ float RealScalarField::DelT(int i, int j) {
 }
 
 float RealScalarField::Del2T(int i, int j) {
-    if (AtBoundary(i,j)) { return 0.0f; }
+    if (AtBoundary(i,j) && use_fixed_bc) { return 0.0f; }
 
     // second-order central
     return (GetFuture(i,j) - 2.0f * Get(i,j) + GetPast(i,j))/(dt*dt);
